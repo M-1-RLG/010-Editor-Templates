@@ -1,0 +1,1 @@
+If you wanna extract files from "crowd.fs" put this file in the same directory as "crowd.fs" and "index.fs"

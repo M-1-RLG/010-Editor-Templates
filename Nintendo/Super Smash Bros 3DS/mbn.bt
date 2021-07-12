@@ -1,0 +1,110 @@
+//------------------------------------------------
+//--- 010 Editor v11.0 Binary Template
+//
+//      File: mbn.bt
+//   Authors: M-1
+//   Version: 1.0
+//   Purpose: Parse Nintendo/Namco's .mbn file (Model BiNary)
+//  Category: Game
+// File Mask: *.mbn
+//  ID Bytes: 
+//   History: 
+//------------------------------------------------
+#include "../../math.bt"
+LittleEndian();
+
+local int i, j, VFlags, MFlags, MCount, Format;
+
+typedef enum<uint>{
+    Character,
+    Stage,
+    Edge,
+    Shadow,
+    Item//Enemy too
+}MbnType;
+
+typedef enum<uint>{
+	Position,
+	Normal,
+	Color,
+	UV0,
+	UV1,
+	BoneIndices,
+	BoneWeights,
+	UV2,
+}AttributeTypes;
+
+typedef enum<uint>{
+	Float,
+	Byte,
+	SByte,
+	SShort,
+}DataType;
+
+typedef struct {
+	AttributeTypes AttributeType;
+	DataType DType;
+	float Scale;
+}Attribute;
+
+typedef struct {
+	byte Index;
+	string Name;
+}String;
+
+typedef struct {
+	uint BTCount;
+	uint BoneTable[BTCount];
+	uint FaceCount;
+
+    //if((MFlags & 2) == 1){
+	if((MFlags) == 2){
+		uint Unk;//Always 2
+	}
+
+	//if(VFlags != 1){
+    if(VFlags != 1){
+		uint AttributeCount;
+		Attribute Attributes[AttributeCount];
+		uint BufferSize;
+	}
+}SubMesh;
+
+typedef struct {
+	uint SMCount;
+    SubMesh SM[SMCount]<optimize=false>;
+}MESH;
+
+typedef struct{
+	uint16 FormatType;
+	FAlign(4);
+	MbnType MeshFlags;
+	uint32 VertexFlags;
+	uint32 MeshCount;
+
+	MCount = MeshCount;
+	VFlags = VertexFlags;
+	MFlags = MeshFlags;
+    Format = FormatType;
+
+	if(VFlags == 1){
+		uint AttributeCount;
+		Attribute Attributes[AttributeCount];
+		uint FullBufferSize;
+	}
+
+}HDR;
+
+typedef struct {
+    HDR Header;
+    for(i = 0; i < Header.MeshCount; i++){
+        MESH Meshes;
+    }
+
+	if((MFlags) == 2){
+		String strings[MCount]<optimize=false>;
+	}
+    FAlign(32);
+} MBN;
+
+MBN MbnFile;

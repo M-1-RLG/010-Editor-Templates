@@ -1,0 +1,241 @@
+//------------------------------------------------
+//--- 010 Editor v11.0 Binary Template
+//
+//      File: jmdl.bt
+//   Authors: M-1
+//   Version: 1.0
+//   Purpose: Parse Ganbarion's .jmdl files (Jet MoDeL?)
+//  Category: Game
+// File Mask: *.jmdl
+//  ID Bytes: 6A 4D 44 4C
+//   History: 
+//------------------------------------------------
+#include "../../math.bt"
+BigEndian();
+local int j, tmp, ret = 0;
+
+typedef enum<ubyte>
+{
+	Position = 1,
+	Normal = 2,
+    Tangent = 3,
+    Bitangent = 4,
+	BoneWeights = 5,
+	BoneIndices = 6,
+	Color = 7,
+	UV0 = 8,
+	UV1 = 9,
+    UV2 = 10
+}AttributeType;
+
+typedef enum<byte>
+{
+	Float = 0,
+	Byte = 2,
+}DataTypes;
+
+typedef struct {
+    uint Crc32ofName;
+    int Unk0;
+    Vector3F Translation;
+    Vector3F Rotation;
+    Vector3F Scale;
+    short Unk1;
+    short Unk2;
+} BONE;
+
+typedef struct {
+    ushort BoneCount;
+    ushort UnkBoneCount;
+    BONE Bones[BoneCount];
+    FAlign(16);
+} JSKL;
+
+typedef struct{
+    uint FaceIndicesStartIndex;
+    ushort FaceIndicesCount;
+    FAlign(4);
+    ushort MaterialIndex;
+    byte VertexAttributeSetIndex;//actually two booleans
+    FAlign(4);
+    ushort Bones[16];
+    Vector3F Min;
+    Vector3F Max;
+} SubMesh;
+
+typedef struct {
+    int RiggedBoneCount;//Some index
+    int Index0;
+    int Index1;
+    Vector3F Min;
+    Vector3F Max;
+    ushort SubmeshCount;
+    ushort Unk2;
+
+    for(j = 0; j < SubmeshCount; j++){
+        SubMesh SMesh;
+    }
+    FAlign(16);
+} MESH;
+
+typedef struct {
+    ushort Count;
+    ushort Unk1;
+    ushort UnkTable[Count];
+    FAlign(16);
+    MESH Meshes[Count]<optimize=false>;
+} MODEL;
+
+typedef struct {
+    int StartOffset;
+    AttributeType Type;
+    DataTypes DataType;
+    ubyte Elements;
+    byte Unk0;
+} ATTRIBUTE;
+
+typedef struct {
+    int VertexStartOffset;
+    int VertexBufferSize;
+    int AttributeCount;
+    int AttributeOffset;
+    int PrimitiveSetIndex;
+    int Unk1;
+    ret = FTell();
+    FSeek(tmp + AttributeOffset);
+
+    ATTRIBUTE Attributes[AttributeCount];
+
+    FSeek(ret);
+} ATTRIBUTE_SET;
+
+typedef struct{
+    uint IndicesStartOffset;
+    uint IndicesBufferSize;
+
+    int Temp<hidden=true>;
+    FSeek(FTell() - 4);
+    if((Temp & 0xFFFF) == 256){
+        ushort IndicesCount;
+    }
+    else{
+        uint IndicesCount;
+    }
+
+    byte UnkBool;//Posibly SkinningMode? 0 to 1
+    FAlign(4);
+} PRIMITIVE_SET;
+
+typedef struct {
+    tmp = FTell();
+    int AttributeSetCount;
+    int AttributeSetOffset;
+    int PrimitiveSetsCount;
+    int PrimitiveSetsOffset;
+
+    ATTRIBUTE_SET M[AttributeSetCount]<optimize=false>;
+
+    FSeek(tmp + PrimitiveSetsOffset);
+    PRIMITIVE_SET prm[PrimitiveSetsCount]<optimize=false>;
+} SETS;
+
+typedef struct {
+    ushort Count0;
+    ushort Count1;
+    uint Table0[Count0];
+    FAlign(4);
+    uint Table1[Count1];
+    FAlign(16);
+} UNKTable;
+
+typedef struct {
+    uint Hash;
+    uint Unk0;
+    uint Unk1;
+    uint Unk2;
+    uint Unk3;
+    uint Unk3;
+    //ubyte Count0;
+    //ubyte Count1;
+    //ushort Unk4;
+    ushort TextureIndex;
+    ushort Padding;//Idk for sure
+    //if(Count0 > 0){
+    //    float Array0[Count0];
+    //}
+    FAlign(4);
+} MAT;
+
+typedef struct {
+    tmp = FTell();
+    ushort MatCount;
+    ushort TextureCount;
+    ushort Offsets[MatCount];
+    FAlign(4);
+
+    for(j = 0; j < MatCount; j++){
+        FSeek(tmp+ Offsets[j]);
+        MAT Material;
+        //Printf("%i\n", Material.TextureIndex);
+    }
+} IDK;
+
+typedef struct {
+    char Magic[4];
+    uint JIMG_Size;
+    ushort Width;
+    ushort Height;
+    ushort Unk0;
+    ushort Unk1;
+    byte Unsure;
+    FSkip(1);
+    ushort StartOffset;
+    uint EndOffset;
+    FAlign(4);
+    FSeek(FTell() + JIMG_Size - 18h);
+} JIMG;
+
+typedef struct {
+    char Magic[4];
+    int TexOffset;
+    int Flags;
+    int SklOffset;
+    int ModelOffset;
+    int UnkOffset;
+    int Unk;//CameraOffset
+    int VertexInfoOffset;
+    int UnkTableOffset;
+    int Unk;
+    int Unk;
+    int Unk;
+    float UnkValues[8];
+    Vector3F Min;
+    Vector3F Max;
+} HEADER;
+
+typedef struct {
+    HEADER hdr<bgcolor=cYellow>; //HeaDeR
+    FSeek(hdr.SklOffset);
+    JSKL SKL<bgcolor=cRed>;
+    MODEL model<bgcolor=cGreen>;
+    if(hdr.UnkOffset > 0){
+        FSeek(hdr.UnkOffset);
+        IDK TexInfo;//Texture info iirc
+    }
+    if(hdr.UnkTableOffset > 0){
+        FSeek(hdr.UnkTableOffset);
+        UNKTable Tbl;
+    }
+
+    if(hdr.VertexInfoOffset > 0){
+        FSeek(hdr.VertexInfoOffset);
+        SETS sets<bgcolor=cBlue>;
+    }
+
+    if(hdr.TexOffset != FileSize()){
+        FSeek(hdr.TexOffset);
+        JIMG Images[TexInfo.TextureCount]<bgcolor=cBlue, optimize=false>;
+    }
+} JMDL;
+
+JMDL File;

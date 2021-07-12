@@ -1,0 +1,136 @@
+//------------------------------------------------
+//--- 010 Editor v11.0 Binary Template
+//
+//      File: gar.bt
+//   Authors: M-1
+//   Version: 1.0
+//   Purpose: Parse Grezzo .gar or .zar files ("Grezzo ARchive" or "Zelda ARchive")
+//  Category: Game
+// File Mask: *.gar, *.zar
+//  ID Bytes: 
+//   History: 
+//------------------------------------------------
+#include "../math.bt"
+LittleEndian();
+local int tmp = 0;
+local string Version = "queen";
+
+void ReadStringAt(int Offset)
+{
+    tmp = FTell();
+    FSeek(Offset);
+    string Name;
+    FSeek(tmp);
+    //Printf("%s\n", Name);
+};
+
+typedef struct {
+    char Magic[4];
+    uint FileSize;
+    short FileTypeCount;
+    short FileCount;
+    int FileGroupOffset;
+    int FileInfoOffset;
+    int DataOffset;
+    
+    char CodeName[8];
+    Version = CodeName;
+} HEADER;
+
+typedef struct {
+
+    if(Version == "queen")
+    {
+        uint FileSize;
+        uint NameOffset;
+        ReadStringAt(NameOffset);
+    }
+    else if(Version == "jenkins")
+    {
+        uint FileSize;
+        uint FileNameOffset;
+        uint FolderNameOffset;
+        
+        //Can't use ReadStringAt because 010 doesn't support duplicate arrays
+        tmp = FTell();
+
+        FSeek(FileNameOffset);
+        string FileName;
+        FSeek(FolderNameOffset);
+        string FolderFileName;
+
+        FSeek(tmp);
+    }
+    else if(Version == "SYSTEM")
+    {
+        uint FileSize;
+        uint FileOffset;
+        uint FileNameOffset;
+        int Unk;
+
+        tmp = FTell();
+        FSeek(FileNameOffset);
+        string FileName;
+
+        FSeek(tmp);
+    }
+
+} GROUP_INFO;
+
+typedef struct {
+    if(Version == "queen")
+    {
+        int FileCount;
+        int IndicesOffset;
+        int InfoOffset;
+        int Padding;
+
+        ReadStringAt(InfoOffset);
+
+        if(FileCount > 0){
+            FSeek(IndicesOffset);
+            int IDS[FileCount];
+        }
+        FSeek(tmp);
+    }
+    else
+    {
+        int FileCount;
+        int DataOffset;
+        int InfoOffset;
+        int NameOffset;
+        int SubTbleOf;
+
+        ReadStringAt(NameOffset);
+
+        if(SubTbleOf > -1){
+            FSeek(SubTbleOf);
+            int Unk0;
+            int Unk1;
+            short ID;
+            short Parent;
+        }
+        FSeek(tmp);
+        FAlign(32);
+    }
+
+} GROUP;
+
+typedef struct {
+    HEADER Hdr<bgcolor=cYellow>;
+
+    FSeek(Hdr.FileGroupOffset);
+    GROUP Groups[Hdr.FileTypeCount]<optimize=false, bgcolor=cRed>;
+
+    FSeek(Hdr.FileInfoOffset);
+    GROUP_INFO Files[Hdr.FileCount]<optimize=false, bgcolor=cGreen>;
+
+    if(Version != "SYSTEM")
+    {
+
+        FSeek(Hdr.DataOffset);
+        uint Offsets[Hdr.FileCount]<bgcolor=cPurple>;
+    }
+} GAR;
+
+GAR gar;

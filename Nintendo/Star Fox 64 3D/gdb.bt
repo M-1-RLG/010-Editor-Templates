@@ -1,0 +1,116 @@
+//------------------------------------------------
+//--- 010 Editor v11.0 Binary Template
+//
+//      File: gdb.bt
+//   Authors: M-1
+//   Version: 1.0
+//   Purpose: Parse Nintendo's *gdb files
+//  Category: Game
+// File Mask: *.modelgdb
+//  ID Bytes: 47 44 42 31
+//   History: 
+//------------------------------------------------
+#include "../math.bt"
+LittleEndian();
+local int pos, StringPos, i;
+
+//Small Note:
+// For "modelgdb" files, "VertexFormat" Stores the what vertex attributes are enabled and the datatypes into one int
+// The first 16(?) bits: HasPos HasNrm, HasClr, HasUV0, HasTangent, HasUV1, HasUV2, HasBoneIndices, HasBoneWeights 
+// And then the data type for each attibute (Each datatype has bits each)
+
+//------------------------------------------------
+
+void ReadName(int o)
+{
+    pos = FTell();
+    FSeek(StringPos + o);
+    string Name;
+    FSeek(pos);
+}
+
+//------------------------------------------------
+
+typedef struct {
+    byte DataType;
+    ushort Count;
+    byte Alignment<hidden=true>;
+
+    uint NameOffset;
+    uint Type;
+
+    ReadName(NameOffset);
+
+
+    if(DataType == 0){//UInt Array
+        uint Values[Count];
+    }
+    else if(DataType == 1){//Array
+        int Value;
+        int IndicesDataType;
+        int Indices[Value];
+    }
+    else if(DataType == 2){//Ushort
+        ushort Value;
+    }
+    else if(DataType == 3){//Int
+        int Value;
+    }
+    else if(DataType == 4){//Float
+        float Value;
+    }
+    else if(DataType == 5){//Int
+        int Value;
+    }
+    else if(DataType == 6){//Matrix44
+        Matrix4x4 Transform;
+    }
+    else if(DataType == 7){//Node
+        int Values[Count];
+    }
+    else if(DataType == 9){//String
+        int NameLength;
+        string BoneName;
+        FAlign(4);
+    }
+    else if(DataType == 11){//Vector2
+        Vector2F Value;
+    }
+    else if(DataType == 12){//Vector3
+        Vector3F Value;
+    }
+    else if(DataType == 13){//Vector4
+        Vector4F Vec4;
+    }
+    else if(DataType == 14){//RGBA
+        Vector4B Value;
+    }
+    else if(DataType == 15){//UInt
+        uint Value;
+    }
+
+    ReadNode(Count);
+    
+} Node<bgcolor=cGreen, optimize=false>;
+
+void ReadNode(int o)
+{
+    if(o != 0){
+        Node N[o]<bgcolor=cGreen, optimize=false>;
+    }
+}
+
+typedef struct {
+    char Magic[4];
+    int Unk0;//Version?
+    int StringOffset;
+    StringPos = Hdr.StringOffset + 4;
+} HEADER;
+
+typedef struct {
+    HEADER Hdr<bgcolor=cYellow>;
+    Node Root;//Root
+    
+} GDB;
+
+GDB File;

@@ -1,0 +1,200 @@
+//------------------------------------------------
+//--- 010 Editor v11.0 Binary Template
+//
+//      File: csab.bt
+//   Authors: M-1
+//   Version: 1.0
+//   Purpose: Parse Grezzo .csab files (Ctr Skeleton Animation Binary)
+//  Category: Game
+// File Mask: *.csab
+//  ID Bytes: 63 73 61 62
+//   History: 
+//------------------------------------------------
+#include "../math.bt"
+LittleEndian();
+local int i, IsConst;
+
+//ENUMS--------------------------------------------------
+
+typedef enum<byte> {
+    Linear  = 1,
+    Hermite = 2
+}InterpolationType;
+
+typedef enum<int>{
+	Once,
+	Loop,
+}LoopModes;
+
+
+//OoT---------------------------------------------------
+typedef struct {
+    if(Hdr.Version > 4){
+		short Value;
+	}
+	else{
+		int Frame;
+		float Value;	
+	}
+} KeyframeLinearFloat;
+
+typedef struct {
+	short Frame;
+	short Value;
+} KeyframeLinearShort;
+
+typedef struct {
+	int Frame;
+	float Value;
+	float InSlope;
+	float OutSlope;
+} KeyframeHermiteFloat;
+
+typedef struct {
+	short Frame;
+	short Value;
+	short InSlope;
+	short OutSlope;
+} KeyframeHermiteShort;
+
+typedef struct {
+	float Scale;
+	float Bias;
+	int Value;
+} Constant;
+
+typedef struct (int IsRotationShort, byte IsRot){
+    IsConst = 0;
+
+    if(Hdr.Version > 4){
+        byte IsConstant;
+        IsConst = IsConstant;
+        InterpolationType Type;
+        short KeyframesCount;
+
+        if(IsCon == 1){
+            Constant Frames[KeyframesCount];
+        }
+    }
+    else{
+        InterpolationType Type;
+        FSkip(3);
+        int KeyframesCount;
+        int StartFrame;
+        int TimeEnd;
+    }
+
+
+    if(IsConst != 1){
+        if(Hdr.Version > 4 && Type == 1){
+		    float Scale;
+    		float Bias;
+	    }
+
+	    if (!IsRot)
+	    {
+		    if(Type == 1){//Linear
+			    KeyframeLinearFloat Frames[KeyframesCount]<optimize=false>;
+		    }
+		    else if(Type == 2){//Hermite Float
+			    KeyframeHermiteFloat Frames[KeyframesCount];
+    		}
+	    }
+	    else
+	    {
+		    if(Type == 1 && IsRotationShort == 0){//Linear
+			    KeyframeLinearFloat Frames[KeyframesCount]<optimize=false>;
+		    }
+    		else if(Type == 1 && IsRotationShort == 1){//Linear
+	    		KeyframeLinearShort Frames[KeyframesCount];
+		    }
+    		else if(Type == 2 && IsRotationShort == 0){//Hermite Float
+	    		KeyframeHermiteFloat Frames[KeyframesCount];
+		    }
+		    else if(Type == 2 && IsRotationShort == 1){//Hermite Short
+			    KeyframeHermiteShort Frames[KeyframesCount];
+    		}
+	    }
+        FAlign(4);
+    }
+} AnimTrack;
+
+typedef struct{
+    char Magic[4];
+    short BoneIndex;
+    if(Hdr.Version > 4){
+        byte IsRotationShort;
+        byte unk;
+    }
+    else{
+        short IsRotationShort;
+    }
+    short TransXOffset;
+    short TransYOffset;
+    short TransZOffset;
+    short RotXOffset;
+    short RotYOffset;
+    short RotZOffset;
+    short ScaleXOffset;
+    short ScaleYOffset;
+    short ScaleZOffset;
+	FSkip(2);
+
+//Translation
+	if(TransXOffset > 0)
+		AnimTrack TranslationX(IsRotationShort, 0);
+	if(TransYOffset > 0)
+		AnimTrack TranslationY(IsRotationShort, 0);
+	if(TransZOffset > 0)
+		AnimTrack TranslationZ(IsRotationShort, 0);
+//Rotation
+	if(RotXOffset > 0)
+		AnimTrack RotationX(IsRotationShort, 1);
+	if(RotYOffset > 0)
+		AnimTrack RotationY(IsRotationShort, 1);
+	if(RotZOffset > 0)
+		AnimTrack RotationZ(IsRotationShort, 1);
+//Scale
+	if(ScaleXOffset > 0)
+		AnimTrack ScaleX(IsRotationShort, 0);
+	if(ScaleYOffset > 0)
+		AnimTrack ScaleY(IsRotationShort, 0);
+	if(ScaleZOffset > 0)
+		AnimTrack ScaleZ(IsRotationShort, 0);
+}ANOD<bgcolor=cGreen>;//AnimationNODe
+
+typedef struct{
+    FSkip(16);//Reserved or unused
+    int Duration;
+    LoopModes LoopMode;
+    int AnodCount;
+    int BoneCount;
+    short BoneTable[BoneCount];
+    FAlign(4);
+    int NodeOffsets[AnodCount];
+    FAlign(4);
+
+    for(i = 0; i < AnodCount; i++){
+        //ANOD Nodes<optimize=false>;
+    }
+    ANOD Node[AnodCount]<optimize=false>;
+}ANIM;
+
+typedef struct{
+    char Magic[4];
+    int FileSize;
+    int Version;
+    int Unk0;
+    if(Version > 4){
+        Vector3F Unk;//Min or Max?
+    }
+    int AnimCount;
+    int AnimOffset;
+}HEAD;
+
+typedef struct {
+    HEAD Hdr<bgcolor=cYellow>; //HeaDeR
+    ANIM Animation<bgcolor=cBlue>;//Animations
+} CSAB;
+
+CSAB File;

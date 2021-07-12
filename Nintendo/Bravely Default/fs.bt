@@ -1,0 +1,36 @@
+//------------------------------------------------
+//--- 010 Editor v11.0 Binary Template
+//
+//      File: fs.bt
+//   Authors: M-1
+//   Version: 1.0
+//   Purpose: Parse Square Enix/Silicon Studio's .fs file
+//  Category: Game
+// File Mask: *.fs
+//  ID Bytes: 4D 4D 44 4C
+//   History: 
+//------------------------------------------------
+#include "../../math.bt"
+LittleEndian();
+
+typedef struct {
+    int StartOffset;
+    int Size;
+    int Hash;
+    string Name;
+    FAlign(4);
+} ENTRY;
+
+typedef struct {
+
+    local int Offset = 1;
+
+    while(Offset != 0){
+        int TmpOffset<hidden=true>;
+        Offset = TmpOffset;
+        ENTRY File;
+    }
+
+} INDEX;
+
+INDEX File;

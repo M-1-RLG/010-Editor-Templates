@@ -1,0 +1,50 @@
+//------------------------------------------------
+//--- 010 Editor v11.0 Binary Template
+//
+//      File: ctxb.bt
+//   Authors: M-1
+//   Version: 1.0
+//   Purpose: Parse Grezzo .ctxb files (Ctr TeXture Binary)
+//  Category: Game
+// File Mask: *.ctxb
+//  ID Bytes: 63 74 78 62
+//   History: 
+//------------------------------------------------
+LittleEndian();
+
+typedef struct {
+    uint DataLength;
+    ushort MipMapCount;
+    byte IsETC1;
+    byte IsCubemap;//Padding in OoT3D/MM3D
+    ushort Width;
+    ushort Height;
+    ushort ImageFormat;
+    ushort PixelFormat;
+    uint DataOffset;
+    char Name[16];
+}TexEntry;
+
+typedef struct {
+    char Magic[4];
+    int ChunkSize;
+    int TexCount;//Always 1
+    TexEntry TE;
+}TexChunk;
+
+typedef struct {
+    char Magic[4];
+    int ChunkSize;
+    int TexCount;//Always 1
+    int Unk<hidden=true>;//Always 0
+    int TexChunkOffset;
+    int TexDataOffset;
+} HEADER;
+
+typedef struct {
+    HEADER Hdr<bgcolor=cYellow>; //HeaDeR
+    TexChunk TC<bgcolor=cBlue>;
+
+} CTXB;
+
+CTXB File;

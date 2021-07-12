@@ -1,0 +1,337 @@
+//------------------------------------------------
+//--- 010 Editor v11.0 Binary Template
+//
+//      File: zsi.bt
+//   Authors: M-1
+//   Version: 1.0
+//   Purpose: Parse Grezzo/Nintendo's .zsi files (Zelda Scene Information)
+//  Category: Game
+// File Mask: *.zsi
+//  ID Bytes: 5A 53 49
+//   History: 
+//------------------------------------------------
+#include "../math.bt"
+LittleEndian();
+
+local uint i, tmp, pos, HC, cmdIndex, MultiSetupCount = 0;
+
+typedef struct {
+    ubyte R;
+    ubyte G;
+    ubyte B;
+} RGB;
+
+typedef enum<byte>
+{
+	False,
+	True
+}Bool;
+
+typedef struct {
+    short Type;
+    short Index0;
+    short Index1;
+    short Index2;
+    short Unk;
+    short NrmX;
+    short NrmY;
+    short NrmZ;
+    float Distance;
+} Triangle;
+
+typedef struct {
+    Vector3S Min;
+    Vector3S Max;
+
+    short VerticesCount;
+    short IndicesCount;
+    short PolyTypesCount;
+    short CameraDataCount;
+    int WaterBoxCount;//Actually ushort, but padding is always 0, so why not read int?
+
+    uint VertexOffset;
+    uint IndicesOffset;
+    uint PolygonTypesOffset;
+    uint CameraOffset;
+    uint WaterBoxOffset;
+} ColHeader;
+
+typedef enum<byte>
+{
+	StartPosition       = 0x00,
+	Actor               = 0x01,
+	CutsceneCamera      = 0x02,
+	Collision           = 0x03,
+	Rooms               = 0x04,
+	WindSettings        = 0x05,
+	Entrance            = 0x06,
+	SpecialFile         = 0x07,
+	RoomBehavior        = 0x08,
+    UnusedCommand       = 0x09,
+	MeshHeader          = 0x0A,
+	Objects             = 0x0B,
+	Lights              = 0x0C,
+	Paths               = 0x0D,
+	TransitionActor     = 0x0E,
+	LightSettings       = 0x0F,
+    TimeSettings        = 0x10,
+	SkyboxSettings      = 0x11,
+	SkyboxDisables      = 0x12,
+	ExitSettings        = 0x13,
+	End                 = 0x14,
+    SoundSettings       = 0x15,
+    EchoSettings        = 0x16,
+    CutsceneData        = 0x17,
+	AlternateHeaders    = 0x18,//MultiSetup
+	MiscSettings        = 0x19,
+	//EnvironmentSettings = 0x0F,
+}HeaderType;
+
+typedef struct (int VertOffset, int VertCount, int TriOffset, int TriCount, int PolyTypesOffset, int PolyTypes){
+    FSeek(pos + VertOffset);
+    Vector3S Vertices[VertCount]<bgcolor=cBlue>;
+
+    FSeek(pos + TriOffset);
+    Triangle Triangles[TriCount]<bgcolor=cRed>;
+
+    FSeek(pos + PolyTypesOffset);
+    for(i = 0; i < PolyTypes; i++){
+        int Flags0<bgcolor=cYellow>;
+        int Flags1<bgcolor=cYellow>;
+    }
+} COLLISION;
+
+typedef struct{
+    short XMax;
+    short ZMax;
+    short XMin;
+    short ZMin;
+    int OpaqueMeshOffset;
+    int TranslucentMeshOffset;
+} MeshEntry;
+
+typedef struct{
+    byte Type;
+    byte EntryCount;
+    short Unk<hidden=true>;
+    uint EntryOffset;
+    uint UnkOffset;
+
+    FSeek(pos + EntryOffset);
+    MeshEntry MH[EntryCount]<optimize=false>;
+    FSeek(UnkOffset + 16);
+    ushort UnkValue;
+    FSeek(pos + cmd1 + 12);
+} MeshHeader;
+
+typedef struct{
+    short ActorFlags;
+    Vector3S Position;
+    Vector3S Rotation;
+    ushort Variable;
+} ActorList;
+
+typedef struct{
+    ubyte ID;
+    ubyte Index;
+} Object;
+
+typedef struct{
+    byte RoomFront;
+    byte TransitionEffectFront;
+    byte RoomBack;
+    byte TransitionEffectBack;
+    short ActorID;
+    Vector3S Position;
+    short RotationY;
+    short Variable;
+} TransitionActor;
+
+typedef struct{
+    ubyte Unk0;
+    ubyte Unk1;
+} EntranceList;
+
+typedef struct{
+    ushort Unk0;
+    ushort Unk1;
+} ExitList;
+
+typedef struct{
+    float DrawDist;
+    float FogDist;
+    short Flags;
+    RGB AmibentColor;
+    RGB DiffuseColor0;
+    RGB DiffusePos0;
+    RGB DiffuseColor1;
+    RGB DiffusePos1;
+    RGB FogColor;
+} LightList;
+
+typedef struct{
+    ReadRoomHeader();
+} MultiSetup<bgcolor=cRed>;
+
+typedef struct{
+    char FileName[68];
+} RoomList;
+
+typedef struct{
+    int PointCount;
+    int PointOffset;
+
+    FSeek(pos + PointOffset);
+    Vector3S Points[PointCount];
+    FSeek(pos + cmd1 + 8);
+} PathList;
+
+typedef struct{
+    
+} Cutscene;
+
+void ReadRoomHeader(){
+    Printf("\nHeader Commands:\n    ");
+    while(true){
+        int cmd0<hidden=true>;
+        int cmd1<hidden=true>;
+
+        HC = cmd0 & 0xFF;
+        tmp = FTell();
+
+        if(HC == 0){
+            Printf("StartPositions[%g], ", (cmd0 >> 8) & 0xFF);
+            FSeek(pos + cmd1);
+            ActorList Link[(cmd0 >> 8) & 0xFF];
+        }
+        else if(HC == 1)
+        {
+            Printf("ActorList[%g], ", (cmd0 >> 8) & 0xFF);
+            FSeek(pos + cmd1);
+            ActorList Actor[(cmd0 >> 8) & 0xFF];
+        }
+        else if(HC == 2){
+            Printf("CutsceneCamera[%g], ", (cmd0 >> 8) & 0xFF);
+        }
+        else if(HC == 3)
+        {
+            Printf("Collision, ");
+            FSeek(pos + cmd1);
+            ColHeader CH<bgcolor=cBlack>;
+
+            FSeek(pos);//Avoid 010 throwing an error
+            COLLISION Col(CH.VertexOffset, CH.VerticesCount, CH.IndicesOffset, CH.IndicesCount, CH.PolygonTypesOffset, CH.PolyTypesCount);
+            if(cmdIndex == 0)
+                break;
+        }
+        else if(HC == 4)
+        {
+            Printf("Rooms[%g], ", (cmd0 >> 8) & 0xFF);
+            FSeek(pos + cmd1);
+            RoomList Room[(cmd0 >> 8) & 0xFF];
+        }
+        else if(HC == 5){
+            Printf("WindSettings, ");
+        }
+        else if(HC == 6){
+            Printf("Entrances[%g], ", (cmd0 >> 8) & 0xFF);
+            FSeek(pos + cmd1);
+            EntranceList Entrance[(cmd0 >> 8) & 0xFF];
+        }
+        else if(HC == 7){
+            Printf("SpecialObjects[%g], ", (cmd0 >> 8) & 0xFF);
+        }
+        else if(HC == 8){
+            Printf("RoomBehavior[%g], ", (cmd0 >> 8) & 0xFF);
+        }
+        else if(HC == 0xA){
+            Printf("MeshHeader, ");
+            FSeek(pos + cmd1);
+            MeshHeader MH;
+        }
+        else if(HC == 0xB){
+            Printf("Objects[%g], ", (cmd0 >> 8) & 0xFF);
+            FSeek(pos + cmd1);
+            Object Obj[(cmd0 >> 8) & 0xFF];
+        }
+        else if(HC == 0xD){
+            Printf("Paths[%g], ", (cmd0 >> 8) & 0xFF);
+            FSeek(pos + cmd1);
+            PathList Path[(cmd0 >> 8) & 0xFF]<optimize=false>;
+        }
+        else if(HC == 0xE){
+            Printf("TransitionActor[%g], ", (cmd0 >> 8) & 0xFF);
+            FSeek(pos + cmd1);
+            TransitionActor DoorActor;
+        }
+        else if(HC == 0xF){
+            Printf("Lights[%g], ", (cmd0 >> 8) & 0xFF);
+            FSeek(pos + cmd1);
+            LightList Lights[(cmd0 >> 8) & 0xFF];
+        }
+        else if(HC == 0x10){
+            Printf("TimeSettings, ");
+        }
+        else if(HC == 0x11){
+            Printf("SkyboxSettings, ");
+        }
+        else if(HC == 0x12){
+            Printf("SkyboxModifier, ");
+        }
+        else if(HC == 0x13){
+            Printf("Exits[%g], ", (cmd0 >> 8) & 0xFF);
+            FSeek(pos + cmd1);
+            ExitList Exits;
+        }
+        else if(HC == 0x14){
+            Printf("EndHeader");
+            break;
+        }
+        else if(HC == 0x15){
+            Printf("SoundSettings, ");
+        }
+        else if(HC == 0x16){
+            Printf("EchoSettings, ");
+        }
+        else if(HC == 0x17){
+            Printf("CutsceneData, ");
+            FSeek(pos + cmd1);
+        }
+        else if(HC == 0x18){
+            Printf("MultiSetups[%g], ", (cmd0 >> 8) & 0xFF);
+            FSeek(pos + cmd1);
+            MultiSetupCount = ((cmd0 >> 8) & 0xFF);
+            int Offsets[MultiSetupCount];
+        }
+        else if(HC == 0x19){
+            Printf("MiscSettings, ");
+            FSeek(pos + cmd1);
+        }
+
+        cmdIndex++;
+        FSeek(tmp);
+    }
+};
+
+typedef struct{
+    char Magic[4];
+    char Name[12];
+    pos = FTell();
+}HEAD;
+
+typedef struct {
+    HEAD Hdr<bgcolor=cYellow>; //HeaDeR
+    MultiSetup Main;//I don't want this ugly
+
+
+    //I hate 010 sometimes
+    for(i = 0; i < MultiSetupCount; i++){
+        if(Main.Offsets[i] != 0){
+            FSeek(pos + Main.Offsets[i]);
+            MultiSetup Setup;
+            FSeek(pos+999);
+        }
+    }
+} ZSI;
+
+ZSI File;

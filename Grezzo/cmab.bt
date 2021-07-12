@@ -1,0 +1,223 @@
+//------------------------------------------------
+//--- 010 Editor v11.0 Binary Template
+//
+//      File: cmab.bt
+//   Authors: M-1
+//   Version: 1.0
+//   Purpose: Parse Grezzo .cmab files (Ctr Material Animation Binary)
+//  Category: Game
+// File Mask: *.cmab
+//  ID Bytes: 63 6D 61 62
+//   History: 
+//------------------------------------------------
+#include "../math.bt"
+LittleEndian();
+
+local int i, pos, TestType;
+
+//Enums-------------------------------------------
+typedef enum<int>{
+	Once,
+	Loop,
+}LoopModes;
+
+typedef enum<int> {
+    Translation = 1,//UV Scroll
+    Palette     = 2,//Texture Swap
+    Scale       = 3,//idk... can't find an in-game change
+    Color       = 4,//Material Color
+    Rotation    = 5
+}AnimationTypes;
+
+typedef enum<int> {
+    Linear  = 1,
+    Hermite = 2,
+    Integer = 3
+}InterpolationType;
+
+typedef enum<short> {
+    LinearMM  = 1,
+    HermiteMM = 2,
+    IntegerMM = 3
+}InterpolationTypeMM;
+//EndEnums----------------------------------------
+
+typedef struct {
+    string Name;
+}String;
+
+typedef struct {
+	char Tag[4];
+	uint StringCount;
+	uint Offsets[StringCount]<hidden=false>;
+
+	pos = FTell();
+	for(i = 0; i < StringCount; i++){
+		FSeek(pos + Offsets[i]);
+		String Name;
+	}
+    FAlign(16);
+} STRT;
+
+typedef struct {
+    uint DataLength;
+    ushort MipMapCount;
+    byte IsETC1;
+    byte IsCubemap;//Padding in OoT3D/MM3D?
+    ushort Width;
+    ushort Height;
+    ushort ImageFormat;
+    ushort DataType;
+    uint DataOffset;
+    uint NameIndex;
+}TextureEntry;
+
+typedef struct {
+	char Tag[4];
+	ushort TextureCount;
+    ushort Unk0;// TODO: 1 In Dumps\3DS\Ever Oasis\RomFS\data\ufm3_gar
+	TextureEntry Texture[TextureCount];
+} TXPT;
+
+typedef struct {
+	int Frame;
+	float Value;
+} KeyframeLinear;
+
+typedef struct {
+	int Frame;
+	float Value;
+	float InSlope;
+	float OutSlope;
+} KeyframeHermite;
+
+typedef struct {
+
+//No way to properly detect MM vs LM versions
+int Check<hidden=true>;
+
+FSeek(FTell() -4);
+	if(Check < 10){
+		InterpolationType Type;
+		int KeyframesCount;
+		int StartFrame;
+		int TimeEnd;
+		TestType = Type;
+	}
+	else{
+		InterpolationTypeMM Type;
+		short KeyframesCount;
+		short StartFrame;
+		short EndFrame;
+		float Unk;
+		int Unk;
+		TestType = Type;
+	}
+
+	if(TestType == 1){//Linear
+		KeyframeLinear Frames[KeyframesCount];
+	}
+	else if(TestType == 2){//Hermite
+		KeyframeHermite Frames[KeyframesCount];
+	}
+	else if(TestType == 3){//Integer
+		KeyframeLinear Frames[KeyframesCount];
+	}
+} AnimTrack;
+
+typedef struct {
+	char Tag[4];
+	AnimationTypes AnimType;
+
+//Check this because sometimes blank tags are written... Grezzo moment
+if(AnimType != 0x6D6D6164)
+{
+	uint MaterialIndex;
+
+	if(AnimType == 1){//Translation
+		uint ChannelIndex;
+		ushort Offsets[2]<hidden=false>;
+        for(i = 0; i < 2; i++)
+        {
+			if(Offsets[i] != 0)
+				AnimTrack Anim;
+        }
+	}
+	if(AnimType == 2){//Palette
+		uint ChannelIndex;
+		ushort Offsets[2]<hidden=false>;//2 because padding
+		AnimTrack Anim;
+	}
+	if(AnimType == 3){//Unk
+		ushort Offsets[3]<hidden=false>;
+		FSkip(2);
+        for(i = 0; i < 3; i++)
+        {
+			if(Offsets[i] != 0)
+				AnimTrack Anim;
+        }
+	}
+	if(AnimType == 4){//Color
+		uint ChannelIndex;
+		ushort Offsets[4]<hidden=true>;
+        for(i = 0; i < 4; i++)
+        {
+			if(Offsets[i] != 0)
+				AnimTrack Anim;
+        }
+	}
+    if(AnimType == 5){//Rotation
+		ushort Offsets[4]<hidden=true>;
+        for(i = 0; i < 4; i++)
+        {
+			if(Offsets[i] != 0)
+				AnimTrack Anim;
+        }
+	}
+}
+else{
+	FSeek(FTell()-4);
+}
+
+} MMAD;
+
+typedef struct {
+	char Tag[4];
+	uint MmadCount;
+	uint MmadPointers[MmadCount]<hidden=false>;
+	MMAD Mmad[MmadCount]<optimize=false>;
+
+} MADS;
+
+typedef struct {
+	int Tag;//No tag
+	int Duration;
+	LoopModes LoopMode;
+	int madsPointer;
+	int txptPointer;//TextureParamater
+
+    if(madsPointer > 0)
+        MADS mads;//MaterialAnimationDataS
+    if(txptPointer > 0)
+        TXPT txpt;//TeXureParameTers
+} ANMD;
+
+typedef struct{
+    char Magic[4];
+    int Version;
+    int Size;
+    int Unk0;
+    int ANMDCount;
+    int ANMDOffset;
+    int StringTableOffset;
+    int TexureDataOffset;
+}HEAD;
+
+typedef struct {
+    HEAD Hdr<bgcolor=cYellow>; //HeaDeR
+    ANMD Animation<bgcolor=cRed>;//Animations
+    FSeek(Hdr.StringTableOffset);
+	STRT strt<bgcolor=cBlue>;
+} CMAB;
+
+CMAB File;

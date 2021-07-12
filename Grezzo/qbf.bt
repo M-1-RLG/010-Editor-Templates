@@ -1,0 +1,37 @@
+//------------------------------------------------
+//--- 010 Editor v11.0 Binary Template
+//
+//      File: qbf.bt
+//   Authors: M-1
+//   Version: 1.0
+//   Purpose: Parse Grezzo .qbf files (Queen Bitmap Font?)
+//  Category: Game
+// File Mask: *.qbf
+//  ID Bytes: 51 42 46 31
+//   History: 
+//------------------------------------------------
+LittleEndian();
+
+typedef struct{
+    string Character;
+    ushort GlyphID;
+    byte unk;
+    byte unk;
+    ushort unk;
+}CharacterEntry;
+
+char Magic[4];
+
+ushort CharacterCount;
+ushort CharacterCount2;
+int Unk;
+
+byte BitsPerPixel;
+byte Width;
+byte Height;
+byte Unk;
+
+local int i;
+for(i = 0; i < CharacterCount; i++){
+    CharacterEntry Entry;
+}

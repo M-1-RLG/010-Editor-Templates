@@ -1,0 +1,89 @@
+//------------------------------------------------
+//--- 010 Editor v11.0 Binary Template
+//
+//      File: qm.bt
+//   Authors: M-1
+//   Version: 1.0
+//   Purpose: Parse Grezzo .qm files (Queen Message)
+//  Category: Game
+// File Mask: *.qm
+//  ID Bytes: 51 4D 00 00
+//   History: 
+//------------------------------------------------
+#include "../math.bt"
+LittleEndian();
+
+typedef enum<uint>
+{
+    Blackbox = 0,
+    Woodenbox = 1,
+    Bluebox = 2,
+    OcarinaInputBox = 3,
+    NoBox = 4,
+    NoBoxShadowDisabled = 5,
+
+    CreditsBox = 6,
+    FileSelectBox = 7,
+    DeleteAndCopyFileBox = 8,
+    OcarinaBottomScreenBox = 9,
+    HintsTextBox = 10,
+    BossBattleVictoriesBox = 11,
+    BossBattleRecordBox = 12
+}BoxTypes;
+
+typedef enum<uint>
+{
+    TopBottom,
+    Top,
+    Middle,
+    Bottom
+}BoxAlignment;
+
+typedef struct {    
+    int Offset;
+    int Length;
+
+    if(Offset > 0 && Length > 0) {
+        local int tmp = FTell(); 
+        FSeek(Offset);
+        char MessageData[Length];
+        FSeek(tmp);
+    }
+} ENTRY;
+
+typedef struct {
+    uint ID;
+    uint SegmentOffset;//Unused
+    BoxTypes BoxType;
+    BoxAlignment BoxPos;
+    ENTRY Japanese;
+    ENTRY EnglishU;
+    ENTRY EnglishE;
+    ENTRY GermanE;
+    ENTRY FrenchE;
+    ENTRY FrenchU;
+    ENTRY SpanishE;
+    ENTRY SpanishU;
+    ENTRY ItalianE;
+    ENTRY DutchE;
+} MESSAGE;
+
+typedef struct {
+    char Magic[4];    
+    int Size;
+    int MessageCount;
+
+    FAlign(16);
+} HEADER;
+
+typedef struct {
+    HEADER Hdr<bgcolor=cYellow>; //HeaDeR
+    MESSAGE Messages[Hdr.MessageCount]<optimize=false>;
+
+    //local uint i = 0;
+	//for(i = 0; i < Hdr.MessageCount; i++){
+    //    Printf("Index: %g  (%g,%g,%g)\n", i, Messages[i].SegmentOffset, Messages[i].BoxType, Messages[i].BoxPos);
+	//}
+} QM;
+
+QM File;

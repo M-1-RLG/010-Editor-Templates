@@ -1,0 +1,2 @@
+jmdl is Ganbarion format called "Jet(Type here mdl, txt, mot, etc.)"
+Plenty of other games use this format but it's slightly different of course

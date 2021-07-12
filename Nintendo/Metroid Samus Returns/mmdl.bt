@@ -1,0 +1,382 @@
+//------------------------------------------------
+//--- 010 Editor v11.0 Binary Template
+//
+//      File: mmdl.bt
+//   Authors: M-1
+//   Version: 1.0
+//   Purpose: Parse Nintendo's .mmdl files (Metroid MoDeL?)
+//  Category: Game
+// File Mask: *.mmdl
+//  ID Bytes: 4D 4D 44 4C
+//   History: 
+//------------------------------------------------
+#include "../../math.bt"
+LittleEndian();
+local int i, j, pos, MeshCount = 0;
+
+typedef enum<short>
+{
+    Byte,
+    Ubyte,
+    Short,
+    Float
+}DataTypes;
+
+typedef enum<int>
+{
+	Single,
+	Rigid,
+	Smooth
+}SkinningModes;
+
+typedef struct {
+    int SeekOffset;
+    int ReturnOffset;
+} Node;
+
+typedef struct {
+    Vector3F Translation;
+    Vector3F Rotation;
+    Vector3F Scale;
+    int idk[16];
+} Bone;
+
+typedef struct {
+    int BoneOffset;
+    int BoneNameOffset;
+    int ParentNameOffset;
+    int IsRotationZero;//Or parent info
+    int Unk2;//Makes Meshes invisible
+
+
+    FSeek(BoneNameOffset);
+    string Name;
+    if(ParentNameOffset != 0){
+        FSeek(ParentNameOffset);
+        string Parent;
+    }
+} BoneInfo;
+
+typedef struct {
+    int Unk0;
+    int Unk1;
+    //Printf("%g\n", Unk1);
+    if(Unk1 == 4){
+        Vector4F Unk2;
+    }
+    if(Unk1 == 2){
+        float Unk2;
+    }
+} UnkStruct;
+
+typedef struct {
+    int Unk0;
+    int Unk1;
+    int Unk2;
+    int Unk3;
+    float Unk4;
+    int Offset0;
+    int Unk5;
+    int Unk6;
+    int Unk7;
+    int Unk8;
+    float Unk9;
+    int Unk10;
+} UnkStruct1;
+
+typedef struct {
+    int MatOffset;
+    int Unk0;
+    int Unk1;
+    int Unk2;
+    float Unk3;
+    int Unk3Bool;
+    int UnkOffset4;
+    int Unk5;
+    int UnkOffset6;
+
+
+    FSeek(UnkOffset4);
+    int Offset0;
+    int Offset1;
+    FSeek(Offset1);
+    UnkStruct1 idk2;
+} UnkStruct2;
+
+typedef struct (int NameOffset, int CoordOffset) {
+    FSeek(NameOffset);
+    string Name;
+
+    FSeek(CoordOffset);
+
+    int TranslationX;
+    int TranslationY;
+    Vector2F Scale;
+    float Rotation;
+    int Unk[10];
+} TexCoord;
+
+typedef struct {
+    int Texture0_Offset;
+    int Texture1_Offset;
+    int Unknown[2];
+    Vector4F Colors[7];
+    Vector2F Unk;
+    int Unk0;
+    int Unk1;
+    int Unk2;
+    int Tex0NameOffset;
+    int Tex0CoordOffset;
+    int Tex1NameOffset;
+    int Tex1CoordOffset;
+    int Tex2NameOffset;
+    int Tex2CoordOffset;
+    int Unk3;
+    short Unk4;
+    byte UnkBool0;
+    byte UnkBool1;
+    int Unk6[18];
+    byte Unk7;
+    FSkip(3);
+    int LookupTableNameOffset;
+    int Unk9;
+    int UnkOffset0;//VertexInfoOffset
+    int Unk10;
+    int Unk11;
+
+    FSeek(UnkOffset0);
+    ReadNode(257);
+
+
+    FSeek(0);
+    if(Tex0CoordOffset != 0){
+        TexCoord Tex0(Tex0NameOffset, Tex0CoordOffset);
+    }
+    if(Tex1CoordOffset != 0){
+        TexCoord Tex1(Tex1NameOffset, Tex1CoordOffset);
+    }
+    if(Tex2CoordOffset != 0){
+        TexCoord Tex2(Tex2NameOffset, Tex2CoordOffset);
+    }
+} Material;
+
+typedef struct {
+    int FaceOffset;
+    SkinningModes SkinningMode;
+    int BoneTableCount;
+    int BoneTableOffset;
+
+    FSeek(BoneTableOffset);
+    int BoneTable[BoneTableCount];
+} Shape;
+
+typedef struct {
+    int SubmeshOffset;
+    int MaterialOffset;
+    int MeshNameOffset;
+    int IsVisible;
+    int UnkBool1;
+} Mesh;
+
+typedef struct {
+    int StringOffset;
+    int UnkBool;
+
+    FSeek(StringOffset);
+    string MeshName;
+} MeshNodeVis;
+
+typedef struct {
+    Vector3F Unk0[6];
+    float idk;
+    int VertexOffset;
+    int UnkCount;
+    int SubmeshOffset;
+    Vector3F Unk2;
+
+    FSeek(SubmeshOffset);
+    ReadNode(255);
+} SeparateShape;
+
+typedef struct {
+    int Unk;
+    DataTypes Unk0;
+    short IsVisible;
+    int Unk2;
+    int FaceCount;
+    int FaceOffset;
+
+    //FSeek(FaceOffset);
+    //ushort Faces[FaceCount];
+} FaceInfo;
+
+typedef enum<int>
+{
+	Position,
+	Normal,
+	UV0,
+    //5, Most values are (1,1,1,0) or (1,1,1,0.7490196)
+    BoneIndex = 6,
+    BoneWeight = 7,
+    Tangent = 8,
+}AttributeTypes;
+
+//Position,
+//	Normal,
+//	Tangent,
+//	Color,
+//	TextureCoordinate0,
+//	TextureCoordinate1,
+//	TextureCoordinate2,
+//	BoneIndex,
+//	BoneWeight
+
+typedef struct {
+    AttributeTypes Type;
+    int Start;
+    DataTypes DataType;
+    short Elements;
+    int PossibleScale;
+} Attribute;
+
+typedef struct {
+    int Unk;
+    int Unk1;
+    int VertexBufferSize;
+    int VertexCount;
+    int VertexOffset;
+    int AttributeCount;
+    Attribute Attributes[AttributeCount];
+
+    pos = FTell();
+
+    for(j = 0; j < AttributeCount; j++){
+        if(Attributes[j].Type == 0){
+            FSeek(VertexOffset + Attributes[j].Start);
+            Vector3F Pos[VertexCount];
+        }
+        if(Attributes[j].Type == 1){
+            FSeek(VertexOffset + Attributes[j].Start);
+            Vector3F Nrm[VertexCount];
+        }
+        if(Attributes[j].Type == 2){
+            FSeek(VertexOffset + Attributes[j].Start);
+            Vector2F UV0[VertexCount];
+        }
+        if(Attributes[j].Type == 5){
+            FSeek(VertexOffset + Attributes[j].Start);
+            Vector4F Col[VertexCount];
+        }
+        if(Attributes[j].Type == 6){
+            FSeek(VertexOffset + Attributes[j].Start);
+
+            if(Attributes[j].Elements == 1){
+                float BI[VertexCount];
+            }
+            if(Attributes[j].Elements == 2){
+                Vector2F BI[VertexCount];
+            }
+            if(Attributes[j].Elements == 3){
+                Vector3F BI[VertexCount];
+            }
+            if(Attributes[j].Elements == 4){
+                Vector4F BI[VertexCount];
+            }
+        }
+        if(Attributes[j].Type == 7){
+            FSeek(VertexOffset + Attributes[j].Start);
+            Vector4F BW[VertexCount];
+        }
+        if(Attributes[j].Type == 8){
+            FSeek(VertexOffset + Attributes[j].Start);
+            Vector3F Tan[VertexCount];
+        }
+    }
+
+    FSeek(pos);
+} VertexInfo;
+
+typedef struct {
+    char Magic[4];
+    short VersionMajor;
+    short VersionMinor;
+    int TypeOffsets[10];
+} HEADER;
+
+
+typedef struct {
+    HEADER Hdr<bgcolor=cYellow>; //HeaDeR
+
+    //0 = VertexInfo
+    //1 = FaceDataInfo
+    //2 = Meshes
+    //3 = Materials //Actually might be SKLM
+    //4 = MeshLinkInfo?
+    //5 = MeshVis
+    //6 = Skeleton
+    //7 = SkeletonLinkInfo
+    //8 = Unused. Always 0
+    //9 = MaterialAnims
+
+    for(i = 0; i < 10; i++){
+        if(Hdr.TypeOffsets[i] != 0){
+            FSeek(Hdr.TypeOffsets[i]);
+            ReadNode(i);
+        }
+    }
+} MMDL;
+
+MMDL File;
+
+void ReadNode(int Type)
+{
+    Node N<bgcolor=cGreen, hidden=true>;
+    FSeek(N.SeekOffset);
+
+    if(Type == 0){
+        VertexInfo VI<bgcolor=cRed>;
+    }
+    else if(Type == 1){
+        FaceInfo FI<bgcolor=cBlue>;
+    }
+    else if(Type == 2){
+        SeparateShape SM<bgcolor=cDkPurple>;
+    }
+    else if(Type == 3){
+        Material MP<bgcolor=cDkGreen>;
+    }
+    else if(Type == 4){
+        Mesh MeshInfo<bgcolor=cLtGreen>;
+    }
+    else if(Type == 5){
+        MeshNodeVis MeshVIs<bgcolor=cDkBlue>;
+    }
+    else if(Type == 6){
+        Bone Limb<bgcolor=cDkYellow>;
+    }
+    else if(Type == 7){
+        ReadNode(256);
+    }
+    else if(Type == 9){
+        UnkStruct2 What;
+    }
+    else if(Type == 255){
+        Shape S<bgcolor=cLtRed>;
+    }
+    else if(Type == 256){
+        BoneInfo LimbInfo<bgcolor=cDkRed>;
+    }
+    else if(Type == 257){
+        UnkStruct UnkSub<bgcolor=cLtYellow>;
+    }
+    else if(Type == 258){
+        if(N.SeekOffset > 0){
+            UnkStruct1 UnkSub2<bgcolor=cLtYellow>;
+        }
+    }
+
+    if(N.ReturnOffset){
+        FSeek(N.ReturnOffset);
+        ReadNode(Type);
+    }
+}

@@ -1,0 +1,53 @@
+//------------------------------------------------
+//--- 010 Editor v11.0 Binary Template
+//
+//      File: 
+//   Authors: 
+//   Version: 
+//   Purpose: 
+//  Category: 
+// File Mask: 
+//  ID Bytes: 
+//   History: 
+//------------------------------------------------
+local int pos;
+
+void ReadName(int o)
+{
+    pos = FTell();
+    FSeek(o);
+    string Name;
+    FSeek(pos);
+}
+
+void Align(int Size)
+{
+    while(FTell() % Size){
+        FSkip(1);
+    }
+};
+
+
+typedef struct {
+    int Version;
+    int FileCount;
+    int Unk;
+    int Unk;
+} HEADER;
+
+typedef struct {
+    int FileOffset;
+    int FileSize;
+    int NameOffset;
+    int Unk;
+    ReadName(NameOffset);
+} Entry;
+
+typedef struct {
+    HEADER Hdr<bgcolor=cYellow>; //HeaDeR
+    Entry Entries[Hdr.FileCount]<optimize=false>;
+    Align(0x80);
+
+} ADJB;
+
+ADJB File;

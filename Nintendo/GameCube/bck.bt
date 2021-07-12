@@ -1,0 +1,74 @@
+//------------------------------------------------
+//--- 010 Editor v11.0 Binary Template
+//
+//      File: 
+//   Authors: 
+//   Version: 
+//   Purpose: Gamecube animation format used in several games
+//  Category: 
+// File Mask: 
+//  ID Bytes: 
+//   History: 
+//------------------------------------------------
+#include "../../math.bt"
+BigEndian();
+
+typedef struct {
+    short Count;
+    short Index;
+    short Unk;
+} AnimeTable;
+
+typedef struct {
+    AnimeTable ScaleX;
+    AnimeTable RotationX;
+    AnimeTable TranslationX;
+    AnimeTable ScaleY;
+    AnimeTable RotationY;
+    AnimeTable TranslationY;
+    AnimeTable ScaleZ;
+    AnimeTable RotationZ;
+    AnimeTable TranslationZ;
+} AnimeTables;
+
+typedef struct {
+    char Magic[4];
+    char Type[4];
+    int FileSize;
+    int ANK1Count;
+    FAlign(0x20);
+} HEADER;
+
+typedef struct {
+    char Magic[4];
+    int ANK1Size;
+    byte PossibleLoopMode; //Set to 2 on "ma_swait.bck"
+    byte Unk;//Always 1?
+    short Duration;
+    short BoneCount;
+
+    short ScaleCount;
+    short RotationCount;
+    short TranslationCount;
+
+    int TableOffset;
+
+    int ScaleOffset;
+    int RotationOffset;
+    int TranslationOffset;
+
+    FAlign(0x20);
+    AnimeTables Tables[BoneCount];
+
+    FAlign(0x20);
+    float ScaleValues[ScaleCount];
+    FAlign(0x20);
+    short RotationValues[RotationCount];
+    FAlign(0x20);
+    float TranslationValues[TranslationCount];
+    
+    
+} ANK1;
+
+HEADER HEAD;
+ANK1 ANK[HEAD.ANK1Count];

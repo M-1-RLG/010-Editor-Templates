@@ -1,0 +1,175 @@
+//------------------------------------------------
+//--- 010 Editor v11.0 Binary Template
+//
+//      File: ccb.bt
+//   Authors: M-1
+//   Version: 1.0
+//   Purpose: Parse Grezzo .ccb files (Ctr Camera Binary)
+//  Category: Game
+// File Mask: *.ccb
+//  ID Bytes: 63 63 62 00
+//   History: 
+//------------------------------------------------
+#include "../math.bt"
+LittleEndian();
+local int i, pos, IsCon;
+
+//ENUMS--------------------------------------------------
+
+typedef enum<int> {
+    Linear  = 1,
+    Hermite = 2
+}InterpolationType;
+
+typedef enum<int>{
+	Once,
+	Loop,
+}LoopModes;
+
+typedef enum<int> {
+    Translation        = 1,
+    TargetPosition     = 2,
+    Twist              = 3,
+    UpwardVector       = 4,
+    ViewRotate         = 5,
+    Near               = 6,
+    Far                = 7,
+    Fovy               = 8,
+    AspectRatio        = 9,
+    Height             = 10,
+}AnimationTypes;
+
+//ETC------------------------------------------------
+typedef struct {
+    if(Hdr.Version > 4){
+		short Value;
+	}
+	else{
+		int Frame;
+		float Value;	
+	}
+} KeyframeLinearFloat;
+
+typedef struct {
+	short Frame;
+	short Value;
+} KeyframeLinearShort;
+
+typedef struct {
+	int Frame;
+	float Value;
+	float InSlope;
+	float OutSlope;
+} KeyframeHermiteFloat;
+
+typedef struct {
+	short Frame;
+	short Value;
+	short InSlope;
+	short OutSlope;
+} KeyframeHermiteShort;
+
+typedef struct {
+    string Name;
+}String;
+
+typedef struct {
+	char Tag[4];
+	uint StringCount;
+	uint Offsets[StringCount]<hidden=false>;
+
+	pos = FTell();
+	for(i = 0; i < StringCount; i++){
+		FSeek(pos + Offsets[i]);
+		String Name;
+	}
+
+    FAlign(16);
+} STRT;
+//---------------------------------------------------
+
+typedef struct{
+    InterpolationType Type;
+    int KeyframesCount;
+    int StartFrame;
+    int TimeEnd;
+
+    if(Type == 1){//Linear
+        KeyframeLinearFloat Frames[KeyframesCount]<optimize=false>;
+    }
+    else if(Type == 2){//Hermite Float
+        KeyframeHermiteFloat Frames[KeyframesCount];
+    }
+}Track;
+
+typedef struct{
+    char Magic[4];
+    AnimationTypes AnimType;
+
+	if(AnimType == 1 || AnimType == 2 || AnimType == 4 || AnimType == 5){//Vector3F
+		ushort Offsets[4]<hidden=true>;
+        for(i = 0; i < 3; i++)
+        {
+			if(Offsets[i] != 0)
+				Track Anim;
+        }
+	}
+	else{//Float
+		ushort Offsets[2]<hidden=true>;
+        for(i = 0; i < 2; i++)
+        {
+			if(Offsets[i] != 0)
+				Track Anim;
+        }
+	}
+}CAM;
+
+typedef struct {
+	char Tag[4];
+	uint CCBCount;
+	uint CCBPointers[CCBCount]<hidden=true>;
+
+	CAM CCBs[CCBCount]<optimize=false>;
+
+} MADS;
+
+typedef struct{
+    char Magic[4];
+    int CameraIndex;
+    int StartFrame;
+    int EndFrame;
+    int Duration;
+
+    short Unk0;
+    short UnkIndex;
+    Vector3F TargetPosition;
+    Vector3F UpwardVector;
+    int Unk1;
+
+    float Near;
+    float Far;
+    float Fovy;
+    float AspectRatio;
+    float Unk3;
+    int MadsOffset;
+    MADS madss;
+}CAAD;
+
+typedef struct{
+    char Magic[4];
+    int Version;
+    int Filesize;
+    int Unk0;
+    int CameraCount;
+    int StringOffset;
+    int CameraOffsets[CameraCount];
+}HEAD;
+
+typedef struct {
+    HEAD Hdr<bgcolor=cYellow>; //HeaDeR
+    CAAD CameraAnims[Hdr.CameraCount]<optimize=false>;
+    STRT strt;
+    //ANIM Animation;//Animations
+} CCB;
+
+CCB File;

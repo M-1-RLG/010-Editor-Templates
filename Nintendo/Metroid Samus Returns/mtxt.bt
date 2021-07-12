@@ -1,0 +1,119 @@
+//------------------------------------------------
+//--- 010 Editor v11.0 Binary Template
+//
+//      File: mtxt.bt
+//   Authors: M-1
+//   Version: 1.0
+//   Purpose: Parse Nintendo's .mtxt files (Metroid TeXTure?)
+//  Category: Game
+// File Mask: *.mtxt
+//  ID Bytes: 4D 54 58 54
+//   History: 
+//------------------------------------------------
+#include "../../math.bt"
+LittleEndian();
+
+//RGB8     = 1_1
+//RGBA8    = 1_2
+//L8       = 1_4
+//LA8      = 1_5
+//ETC      = 3_1
+//ETCa4    = 3_2
+
+typedef enum<int>
+{
+    RGB8_0   = 0x10001,//65537
+    RGBA8_0  = 0x20001,//65538,
+    L8_0     = 0x40001,//65540
+    LA8_0    = 0x50001,//65541
+    ETC1_0   = 0x10003,//196609
+    ETC1a4_0 = 0x20003 //196610
+}TextureFormats;
+
+typedef enum<ubyte>
+{
+    RGBA8,
+    RGB8,
+    RGBA5551,
+    RGB565,
+    RGBA4,
+    LA8,
+    HiLo8,
+    L8,
+    A8,
+    LA4,
+    L4,
+    A4,
+    ETC1,
+    ETC1A4
+}PICATextureFormats;
+
+typedef struct {
+    PICATextureFormats TextureFormat;
+    byte MipLevel;
+    byte Compression;
+    byte CompMethod;
+} MipmapEntry;
+
+typedef struct {
+    int NameOffset;
+    int DataSize;
+    int DataOffset;
+
+    PICATextureFormats ImageFormat;
+    FSkip(3);
+
+    short Width;
+    short Height;
+    byte MipmapCount;
+
+    byte Type;
+    short Padding;
+    int UnkOffset;
+    uint TimeStamp;
+    uint MipmapDataSizes[MipmapCount];
+
+    //Don't care todo this properly
+    //because texture count is always 1
+    string Name;
+    FAlign(4);
+    uint Hash;
+    int ID;
+
+    MipmapEntry Mipmaps[MipmapCount];
+
+} TexEntry;
+
+typedef struct {
+    char Magic[4];
+    short Version;
+    short TextureCount;
+    int DataOffset;
+    int DataSize;
+    int crc32Offset;
+    int TexInfoOffset;
+    FSkip(8);
+
+    TexEntry TexturseEntry;
+} CTPK;
+
+typedef struct {
+    char Magic[4];
+    short VersionMajor;
+    short VersionMinor;
+    TextureFormats TextureFormat;
+    int Width;
+    int Height;
+    int MipmapCount;
+    int NameOffset;
+    int DataOffset;//minus header
+    int CTPKSize;
+} HEADER;
+
+typedef struct {
+    HEADER Hdr<bgcolor=cYellow>; //HeaDeR
+    FAlign(0x80);
+    CTPK Texture;
+} MTXT;
+
+MTXT File;

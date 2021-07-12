@@ -1,0 +1,722 @@
+//------------------------------------------------
+//--- 010 Editor v11.0 Binary Template
+//
+//      File: cmb.bt
+//   Authors: M-1
+//   Version: 1.0
+//   Purpose: Parse Grezzo .cmb files (Ctr Model Binary)
+//  Category: Game
+// File Mask: *.cmb
+//  ID Bytes: 63 6D 62 20
+//   History: 
+//------------------------------------------------
+#include "../math.bt"
+LittleEndian();
+
+local uint CombinerCount, CubeMapCount, pos, i = 0;
+
+typedef enum<byte>
+{
+	False,
+	True
+}bool;
+
+//Enums--------------------------------------
+
+typedef enum<byte>
+{
+	BlendNone,
+	Blend,
+	BlendSeparate,
+	LogicalOp
+}BlendModes;
+
+typedef enum<ushort>
+{
+	No = 25280,
+	Pri = 25281,
+	Sec = 25282,
+	PriSec = 25283
+}FresnelSelector;
+
+typedef enum<ushort>
+{
+	Byte = 0x1400,
+	UByte = 0x1401,
+	Short = 0x1402,
+	UShort = 0x1403,
+	Int = 0x1404,
+	UInt = 0x1405,
+	Float = 0x1406,
+}DataTypes;
+
+typedef enum<ushort>
+{
+	Never    = 512,
+	Less     = 513,
+	Equal    = 514,
+	Lequal   = 515,
+	Greater  = 516,
+	Notequal = 517,
+	Gequal   = 518,
+	Always   = 519
+}TestFunc;
+
+typedef enum<ushort>
+{
+	Zero = 0,
+	One = 1,
+	SourceColor = 768,
+	OneMinusSourceColor = 769,
+	DestinationColor = 774,
+	OneMinusDestinationColor = 775,
+	SourceAlpha = 770,
+	OneMinusSourceAlpha = 771,
+	DestinationAlpha = 772,
+	OneMinusDestinationAlpha = 773,
+	ConstantColor = 32769,
+	OneMinusConstantColor = 32770,
+	ConstantAlpha = 32771,
+	OneMinusConstantAlpha = 32772,
+	SourceAlphaSaturate = 776
+}BlendFunc;
+
+typedef enum<uint>
+{
+	FuncAdd = 32774,
+	FuncSubtract = 32778,
+	FuncReverseSubtract = 32779,
+	Min = 32775,
+	Max = 32776
+}BlendEquation;
+
+typedef enum<byte>
+{
+	FrontAndBack,
+	Front,
+	BackFace,
+	None
+}FaceCulling;
+
+typedef enum<ushort>
+{
+	Texture0 = 33984,
+	Texture1 = 33985,
+	Texture2 = 33986
+}BumpTextures;
+
+typedef enum<ushort>
+{
+	NotUsed   = 25288,
+	AsBump    = 25289,
+	AsTangent = 25290//Doesn't exist in OoT3D
+}BumpModes;
+
+typedef enum<short>
+{
+	Array,
+	Constant
+}Modes;
+
+typedef enum<short>
+{
+	Single,
+	Rigid,
+	Smooth
+}SkinningModes;
+
+typedef enum<ushort>
+{
+	CosNormalHalf = 25248,
+	CosViewHalf = 25249,
+	CosNormalView = 25250,
+	CosLightNormal = 25251,
+	CosLightSpot = 25252,
+	CosPhi = 25253
+} LUTInput;
+
+typedef enum<ushort>
+{
+	LayerConfig0 = 25264,
+	LayerConfig1 = 25265,
+	LayerConfig2 = 25266,
+	LayerConfig3 = 25267,
+	LayerConfig4 = 25268,
+	LayerConfig5 = 25269,
+	LayerConfig6 = 25270,
+	LayerConfig7 = 25271,
+}LayerConfig;
+
+typedef enum<ushort>
+{
+    Color = 0x0300,
+    OneMinusColor = 0x0301,
+    Alpha = 0x0302,
+    OneMinusAlpha = 0x0303,
+    Red = 0x8580,
+    OneMinusRed = 0x8583,
+    Green = 0x8581,
+    OneMinusGreen = 0x8584,
+    Blue = 0x8582,
+    OneMinusBlue = 0x8585
+}CombinerOp;
+
+typedef enum<ushort>
+{
+    Replace = 0x1E01,
+    Modulate = 0x2100,
+    Add = 0x0104,
+    AddSigned = 0x8574,
+    Interpolate = 0x8575,
+    Subtract = 0x84E7,
+    DotProduct3Rgb = 0x86AE,
+    DotProduct3Rgba = 0x86AF,
+    MultAdd = 0x6401,
+    AddMult = 0x6402,
+}CombinerMode;
+
+typedef enum<ushort>
+{
+    PrimaryColor = 0x8577,
+    FragmentPrimaryColor = 0x6210,
+    FragmentSecondaryColor = 0x6211,
+    Texture_0 = 0x84C0,
+    Texture_1 = 0x84C1,
+    Texture_2 = 0x84C2,
+    Texture_3 = 0x84C3,
+    PreviousBuffer = 0x8579,
+    ConstantCol = 0x8576,
+    Previous = 0x8578
+}CombinerSrc;
+
+typedef enum<ushort>
+{
+    _One = 1,
+    _Two = 2,
+    _Four = 4,
+}CombinerScale;
+
+//End Enums
+
+typedef struct {
+    ushort Index;
+    // 4095 is the max value (In MM3D anyway)
+    // (Value & 0xFFF) to get the bone ID
+    // ((Value >> 4) & 1) to get the flag that I assume is "HasSkinningMatrix"
+    short ParentIndex;
+    Vector3 Scale;
+    Vector3 Rotation;
+    Vector3 Translation;
+
+    if(Hdr.Version > 6){
+        uint unk0;
+    }
+} BONE;
+
+typedef struct {
+    char Magic[4];
+    uint Size;
+    uint BoneCount;
+    uint Unknown;//Bitflags maybe. Set to "2" sometimes "IsTranslateAnimationEnabled"?
+    BONE Bone[BoneCount]<optimize=true>;
+} SKL;
+
+typedef struct{
+    CombinerMode CombinerModeColor;
+    CombinerMode CombinerModeAlpha;
+    CombinerScale ScaleColor;
+    CombinerScale ScaleAlpha;
+    CombinerSrc BufferColor;
+    CombinerSrc BufferAlpha;
+    //Color
+    CombinerSrc SourceColor0;
+    CombinerSrc SourceColor1;
+    CombinerSrc SourceColor2;
+    //Color
+    CombinerOp OperandColor0;
+    CombinerOp OperandColor1;
+    CombinerOp OperandColor2;
+    //Alpha
+    CombinerSrc SourceAlpha0;
+    CombinerSrc SourceAlpha1;
+    CombinerSrc SourceAlpha2;
+    //Alpha
+    CombinerOp OperandAlpha0;
+    CombinerOp OperandAlpha1;
+    CombinerOp OperandAlpha2;
+    uint ConstantColorIndex;
+}COMBINER;
+
+typedef struct{
+    short TextureID;
+    ushort unknown;//Padding?
+    ushort TextureMinFilter;
+    ushort TextureMagFilter;
+    ushort TextureWrapModes;
+    ushort TextureWrapModet;
+    float MinLODBias;
+    float LODBias;
+    Vector4B BorderColor;
+}TextureMappers;
+
+typedef struct{
+    ubyte MatrixMode;//	DccMaya, DccSoftimage, Dcc3dsMax
+    ubyte ReferenceCamera;
+    ubyte MappingMethod;// None, UvCoordinateMap, CameraCubeEnvMap, CameraSphereEnvMap, ProjectionMap
+    ubyte CoordinateIndex;
+    Vector2 Scale;
+    float Rotation;
+    Vector2 Translation;
+}TextureCoords;
+
+typedef struct{
+    bool IsAbs;
+    byte Index;
+    LUTInput Input;
+    float Scale;
+}Sampler;
+
+typedef struct{
+    LayerConfig Config;
+    FAlign(4);//4 Byte Alignment
+
+    FresnelSelector Selector;
+
+    bool IsClampHighLight;
+    bool IsDistribution0Enabled;
+    bool IsDistribution1Enabled;
+    bool IsGeometricFactor0Enabled;
+    bool IsGeometricFactor1Enabled;
+    bool IsReflectionEnabled;
+
+    Sampler ReflectanceRSampler;
+    Sampler ReflectanceGSampler;
+    Sampler ReflectanceBSampler;
+    Sampler Distibution0Sampler;
+    Sampler Distibution1Sampler;
+    Sampler FresnelSampler;
+}Fragment;
+
+typedef struct{
+    bool IsFragmentLightingEnabled;
+    bool IsVertexLightingEnabled;
+    bool IsHemiSphereLightingEnabled;
+    bool IsHemiSphereOcclusionEnabled;
+
+    FaceCulling Culling;
+
+    bool IsPolygonOffsetEnabled;
+    short PolygonOffsetValue;
+
+    if(Hdr.Version > 10){
+        int unk;// Zero or one
+        short TextureMappersUsed<hidden=true>;
+        short TextureCoordsUsed<hidden=true>;
+    }
+    else{
+        uint TextureMappersUsed<hidden=false>;
+        uint TextureCoordsUsed<hidden=false>;
+    }
+
+    TextureMappers TextureMapper[3];
+    TextureCoords TextureCoord[3];
+
+    Vector4B EmissionColor;
+    Vector4B AmbientColor;
+    Vector4B Diffuse;
+    Vector4B Specular0;
+    Vector4B Specular1;
+    Vector4B Constant0;
+    Vector4B Constant1;
+    Vector4B Constant2;
+    Vector4B Constant3;
+    Vector4B Constant4;
+    Vector4B Constant5;
+
+    Vector4 BufferColor;
+
+    BumpTextures BumpTexture;
+    BumpModes BumpMode;
+    bool IsBumpRenormalize;
+    FAlign(4);//4 Byte Alignment
+
+    Fragment FragLighting;
+
+    uint  TexEnvStageUsed<hidden=true>;
+    short TexEnvStagesIndices[6];
+
+    bool AlphaTestEnabled;
+    ubyte AlphaTestReferenceValue;
+    TestFunc AlphaTestFunction;
+
+    bool DepthTestEnabled;
+    bool DepthWriteEnabled;
+    TestFunc DepthTestFunction;
+
+    BlendModes BlendMode;
+    FAlign(4);//4 Byte Alignment
+
+    BlendFunc AlphaSrcFunc;
+    BlendFunc AlphaDstFunc;
+    BlendEquation AlphaEquation;
+    BlendFunc ColorSrcFunc;
+    BlendFunc ColorDstFunc;
+    BlendEquation ColorEquation;
+
+    Vector4 BlendColor;
+
+    if(Hdr.Version > 6)
+    {
+        byte StencilEnabled;
+        byte StencilReferenceValue;
+        ubyte BufferMask;
+        ubyte Buffer;
+        ushort StencilFunc;
+        ushort FailOP;
+        ushort ZFailOP;
+        ushort ZPassOP;
+        uint unk;//some hash?
+    }
+}MATERIAL;
+
+typedef struct {
+    char Magic[4];
+    uint Size;
+    uint MaterialCount;
+    MATERIAL Material[MaterialCount]<optimize=true>;
+
+    if(MaterialCount > 0){
+        for(i = 0; i < MaterialCount; i++){
+            CombinerCount += Material[i].TexEnvStageUsed;
+        }
+    }
+
+    COMBINER Combiner[CombinerCount]<optimize=true>;
+} MATS;
+
+typedef struct {
+    uint DataOffset;
+} CubeImageData;
+
+typedef struct {
+    uint OffsetPositiveX;
+    uint OffsetNegativeX;
+
+    uint OffsetNegativeY;
+    uint OffsetPositiveY;
+
+    uint OffsetNegativeZ;
+    uint OffsetPositiveZ;
+} CubeImage;
+
+typedef struct {
+    uint DataLength;
+    ushort MipMapCount;
+    byte IsETC1;
+    byte IsCubemap;// Padding in OoT3D/MM3D?
+    ushort Width;
+    ushort Height;
+    ushort ImageFormat;
+    ushort DataType;
+    uint DataOffset;
+    char Name[16];
+} TextureEntry;
+
+typedef struct {
+    char Magic[4];
+    int Size;
+    int TextureCount;
+
+    local int i = 0;
+    for(i = 0; i < TextureCount; i++){
+        TextureEntry Entry;
+        if(Entry.IsCubemap)
+            CubeMapCount += 1;
+    }
+
+    for(i = 0; i < CubeMapCount; i++){
+        CubeImage Images;
+    }
+} TEX;
+
+typedef struct {
+    ushort SepdIndex;
+    ubyte MaterialIndex;
+    ubyte ID;//MeshNodeNameID used for visibilty stuff
+
+    //No idea what all this is, but it effects nothing in-game afaik
+
+    if(Hdr.Version == 10){//Majora's Mask
+        int unk;
+        int unk;
+    }
+    if(Hdr.Version == 12){//Ever Oasis
+        int unk;
+        int unk;
+        int unk;
+    }
+    if(Hdr.Version == 15){//Luigi's mansion
+        int unk;
+        int unk;
+        int unk;
+        int unk;
+        int unk;
+        int unk;
+        int unk;
+        int unk;
+        int unk;
+        int unk;
+        int unk;
+        int unk;
+        int unk;
+        int unk;
+        int unk;
+        int unk;
+        int unk;
+        int unk;
+        int unk;
+        int unk;
+        int unk;
+    }
+} MESH;
+
+typedef struct {
+    char Magic[4];    
+    uint Size;
+    uint IsVisible;
+    uint PrimitiveMode;//Guessing
+    DataTypes IndexType;
+    FAlign(4);//4 Byte Alignment
+    ushort IndicesCount;
+    ushort Offset;
+} PRM;
+
+typedef struct {
+    char Magic[4];    
+    int Size;
+    int PrmCount;
+    SkinningModes SkinningMode;
+    ushort BoneTableCount;
+    int BoneTableOffset;
+    int PrimOffset;
+    short BoneIndices[BoneTableCount];
+    FAlign(4);//4 Byte Alignment
+    PRM prm[PrmCount]<optimize=true>;
+} PRMS;
+
+typedef struct {
+    int Start;
+    float Scale;
+    DataTypes DataType;
+    Modes Mode;
+    Vector4 Constants;
+}Attribute;
+
+typedef struct {
+    pos = FTell();
+    char Magic[4];
+    uint Size;
+    ushort PrmsCount;
+    ushort BitFlags;
+//Bit Flags (HasTangents was added in versions > OoT:3D)
+    //HasPosition : 00000001
+    //HasNormals  : 00000010
+    //HasColors   : 00000100
+    //HasUV0      : 00001000
+    //HasUV1      : 00010000
+    //HasUV2      : 00100000
+    //HasIndices  : 01000000
+    //HasWeights  : 10000000
+    Vector3 MeshCenter;
+    Vector3 PositionOffset;
+
+    if(Hdr.Version == 15){
+        Vector3 Min;
+        Vector3 Max;
+    }
+
+    Attribute Position;
+    Attribute Normals;
+    if(Hdr.Version > 6){
+        Attribute Tangents;
+    }
+    Attribute Colors;
+    Attribute UV0;
+    Attribute UV1;
+    Attribute UV2;
+    Attribute Indices;
+    Attribute Weights;
+
+    ushort BoneDimensionCount;
+    ushort UsedConstantFlags;//Bitflags for when an attribute uses the contants values
+    ushort PrmsOffsets[PrmsCount];
+    FAlign(4);//4 Byte Alignment
+
+    for(i = 0; i < PrmsCount; i++){
+        FSeek(pos + PrmsOffsets[i]);
+        PRMS prm;
+    }
+} SEPD;
+
+typedef struct {
+    char Magic[4];
+    uint Size;
+    uint MeshCount;
+    ushort OpaqueMeshCount;
+    //The remainder of "OpaqueMeshCount" are transparent meshes
+    ushort IDCount;
+
+    MESH mesh[MeshCount]<optimize=true>;
+} MSHS;
+
+typedef struct {
+    char Magic[4];
+    uint Size;
+    uint SepdCount;
+    uint UnkFlags;//Set to 0x58 for adult link, but 0 for every file in LM:3D, MM:3D, OoT3D, and Ever Oasis
+    //Edit: Seems to be used to enable settings big goron sword, bottle colors, gauntlets, etc.
+    ushort SepdOffsets[SepdCount]<hidden=true>;
+    FAlign(4);//4 Byte Alignment
+
+    local int j;
+    for(j = 0; j < SepdCount; j++){
+        SEPD sepd;
+    }
+} SHP;
+
+typedef struct {
+    local uint SklmStart = FTell();
+    char Magic[4];
+    uint Size;
+    uint MshsOffset;
+    uint ShpOffset;
+    FSeek(SklmStart + MshsOffset);
+    MSHS mshs;
+
+    FSeek(SklmStart + ShpOffset);
+    SHP shp;
+} SKLM;
+
+
+typedef struct {
+uint Size;
+uint Offset;
+} Slice;
+
+typedef struct {
+    char Magic[4];
+    uint Size;
+    uint MaxIndex;
+    Slice Position;
+    Slice Normal;
+    if(Hdr.Version > 6){
+        Slice Tangent;
+    }
+    Slice Color;
+    Slice UV0;
+    Slice UV1;
+    Slice UV2;
+    Slice BoneIndices;
+    Slice BoneWeights;
+} VATR;
+
+typedef struct{
+    float InSlope;
+    float OutSlope;
+    int Frame;
+    float Value;
+}Keyframe;
+
+typedef struct{
+    //00000001 = IsGeneratedAsAbs?
+    //00000010 = IsSizeDoubled?
+    //00000100 = IsMipMap?
+    ushort BitFlags;//Not sure
+    ushort KeyCount;//Keyframes
+    short Start;
+    short End;
+    Keyframe Frame[KeyCount];
+    float unk;
+    float unk;
+}LUTSET;
+
+typedef struct {
+    char magic[4];
+    uint dataLength;
+    uint LutSetCount;
+    uint unk;
+    uint Offset[LutSetCount];
+
+    local int j;
+    for(j = 0; j < LutSetCount; j++){
+        LUTSET LUTS;
+    }
+} LUTS;
+
+typedef struct{
+    char Magic[4];
+    uint Filesize;
+    uint Version;
+    uint unk;
+    char Name[16];
+    uint IndicesCount;
+    int SKLOffset;
+
+    if(Version > 6){
+        int QTRSOffset;   
+    }
+
+    int MATSOffset;
+    int TEXOffset;
+    int SKLMOffset;
+    int LUTSOffset;
+    int VATROffset;
+    uint IndicesOffset;
+    uint TextureDataOffset;
+
+    if(Version > 6){
+        int unk;
+    }
+}HEAD;
+
+typedef struct {
+    uint UnkCount;
+    uint UnkCount;
+    Vector3 ModelMin;
+    Vector3 ModelMax;
+    int UnkIndex;//Always -1
+    int UnkIndex;//Always -1
+    int Unk;
+} BOX;
+
+typedef struct {
+    char Magic[4];    
+    uint Size;
+    uint BoundingBoxCount;
+    BOX BB[BoundingBoxCount];
+} QTRS;
+
+typedef struct {
+    HEAD Hdr<bgcolor=cYellow>; //HeaDeR
+
+    if(Hdr.SKLOffset > 0)
+        SKL  Skl<bgcolor=cDkGray>; //SKeLeton
+    if(Hdr.Version > 6)
+        QTRS qtrs<bgcolor=cDkPurple>;
+
+    if(Hdr.MATSOffset > 0)
+        MATS Mat<bgcolor=cDkYellow>; //MATerialS
+    if(Hdr.TEXOffset > 0)
+        TEX Tex<bgcolor=cGreen>; //TEXtures
+    if(Hdr.SKLMOffset > 0)
+        SKLM Sklm<bgcolor=cPurple>;//SKeletaLModel
+    if(Hdr.LUTSOffset > 0)
+        LUTS luts<bgcolor=cLtBlue>;//LookUpTableS (WIP)
+
+    FSeek(Hdr.VATROffset);
+    if(Hdr.VATROffset > 0)
+        VATR Vatr;//VertexATtRibutes
+
+} CMB;
+
+CMB File;
