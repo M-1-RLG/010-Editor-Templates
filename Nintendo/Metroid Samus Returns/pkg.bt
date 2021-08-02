@@ -1,0 +1,25 @@
+//------------------------------------------------
+//--- 010 Editor v11.0 Binary Template
+//
+//      File: pkg.bt
+//   Authors: M-1
+//   Version: 1.0
+//   Purpose: Parse .pkg files (Metroid MoDeL or Mercury MoDeL)
+//  Category: Game
+// File Mask: *.pkg
+//  ID Bytes: 
+//   History: 
+//------------------------------------------------
+LittleEndian();
+
+typedef struct {
+    uint Hash;
+    uint StartOffset;
+    uint EndOffset;
+} File;
+
+uint HeaderSize;//Header size disregarding this uint
+uint DataSize;
+uint FileCount;
+
+File Files[FileCount];

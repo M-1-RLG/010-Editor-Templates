@@ -4,7 +4,7 @@
 //      File: mmdl.bt
 //   Authors: M-1
 //   Version: 1.0
-//   Purpose: Parse Nintendo's .mmdl files (Metroid MoDeL?)
+//   Purpose: Parse Nintendo's .mmdl files (Metroid MoDeL? or  Mercury)
 //  Category: Game
 // File Mask: *.mmdl
 //  ID Bytes: 4D 4D 44 4C
@@ -12,7 +12,14 @@
 //------------------------------------------------
 #include "../../math.bt"
 LittleEndian();
-local int i, j, pos, MeshCount = 0;
+local int i, j, pos = 0;
+
+void Align(int Size)
+{
+    while(FTell() % Size){
+        FSkip(1);
+    }
+};
 
 typedef enum<short>
 {
@@ -38,14 +45,14 @@ typedef struct {
     Vector3F Translation;
     Vector3F Rotation;
     Vector3F Scale;
-    int idk[16];
+    Align(0x80);//FAlign doesn't work?
 } Bone;
 
 typedef struct {
     int BoneOffset;
     int BoneNameOffset;
     int ParentNameOffset;
-    int IsRotationZero;//Or parent info
+    int HasSkinningMatrix;
     int Unk2;//Makes Meshes invisible
 
 
@@ -101,7 +108,7 @@ typedef struct {
     int Offset1;
     FSeek(Offset1);
     UnkStruct1 idk2;
-} UnkStruct2;
+} UnkStruct2;//LookUpTable I think
 
 typedef struct (int NameOffset, int CoordOffset) {
     FSeek(NameOffset);
@@ -109,19 +116,28 @@ typedef struct (int NameOffset, int CoordOffset) {
 
     FSeek(CoordOffset);
 
+//Guessing
     int TranslationX;
     int TranslationY;
     Vector2F Scale;
     float Rotation;
     int Unk[10];
-} TexCoord;
+} TexCoord;//Not sure
 
 typedef struct {
-    int Texture0_Offset;
-    int Texture1_Offset;
+    //I don't have much an idea yet...
+    int MaterialName;
+    int ShaderName;
     int Unknown[2];
-    Vector4F Colors[7];
-    Vector2F Unk;
+    Vector3F Color0;//Emission?
+    Vector3F Color1;//Ambient?
+    Vector4F Color2;//Diffuse?
+    Vector4F Color3;
+    Vector4F Color4;
+    Vector4F Color5;
+    Vector4F Color6;
+    Vector4F Color7;
+    //Vector4F Colors[5];
     int Unk0;
     int Unk1;
     int Unk2;
@@ -132,15 +148,16 @@ typedef struct {
     int Tex2NameOffset;
     int Tex2CoordOffset;
     int Unk3;
-    short Unk4;
-    byte UnkBool0;
-    byte UnkBool1;
+    byte Unk4;//Makes the mesh bright?
+    byte UnkBool0;//Makes mesh invisible
+    byte DepthWrite;//IsDepthTestEnabled?
+    byte UnkBool1;//IsDepthTestEnabled too?
     int Unk6[18];
     byte Unk7;
     FSkip(3);
     int LookupTableNameOffset;
     int Unk9;
-    int UnkOffset0;//VertexInfoOffset
+    int UnkOffset0;
     int Unk10;
     int Unk11;
 
@@ -161,7 +178,7 @@ typedef struct {
 } Material;
 
 typedef struct {
-    int FaceOffset;
+    int PrimitiveOffset;
     SkinningModes SkinningMode;
     int BoneTableCount;
     int BoneTableOffset;
@@ -171,7 +188,7 @@ typedef struct {
 } Shape;
 
 typedef struct {
-    int SubmeshOffset;
+    int ShapeOffset;
     int MaterialOffset;
     int MeshNameOffset;
     int IsVisible;
@@ -179,22 +196,21 @@ typedef struct {
 } Mesh;
 
 typedef struct {
-    int StringOffset;
-    int UnkBool;
+    int NodeNameOffset;
+    int IsNodeVisible;
 
-    FSeek(StringOffset);
+    FSeek(NodeNameOffset);
     string MeshName;
 } MeshNodeVis;
 
 typedef struct {
-    Vector3F Unk0[6];
-    float idk;
-    int VertexOffset;
-    int UnkCount;
-    int SubmeshOffset;
-    Vector3F Unk2;
+    float NoIdea[19];//BoundBoxStuff maybe
+    int VertexBufferOffset;
+    int PrimitiveCount;
+    int PrimitiveOffset;
+    Vector3F PositionOffset;
 
-    FSeek(SubmeshOffset);
+    FSeek(PrimitiveOffset);
     ReadNode(255);
 } SeparateShape;
 
@@ -206,37 +222,29 @@ typedef struct {
     int FaceCount;
     int FaceOffset;
 
-    //FSeek(FaceOffset);
-    //ushort Faces[FaceCount];
-} FaceInfo;
+    FSeek(FaceOffset);
+    ushort Faces[FaceCount];
+} Primitive;
 
 typedef enum<int>
 {
 	Position,
 	Normal,
 	UV0,
-    //5, Most values are (1,1,1,0) or (1,1,1,0.7490196)
+    UV1,
+    UV2,
+    Color = 5,
     BoneIndex = 6,
     BoneWeight = 7,
     Tangent = 8,
 }AttributeTypes;
-
-//Position,
-//	Normal,
-//	Tangent,
-//	Color,
-//	TextureCoordinate0,
-//	TextureCoordinate1,
-//	TextureCoordinate2,
-//	BoneIndex,
-//	BoneWeight
 
 typedef struct {
     AttributeTypes Type;
     int Start;
     DataTypes DataType;
     short Elements;
-    int PossibleScale;
+    int PossiblyScale;
 } Attribute;
 
 typedef struct {
@@ -294,7 +302,7 @@ typedef struct {
     }
 
     FSeek(pos);
-} VertexInfo;
+} VertexBuffer;
 
 typedef struct {
     char Magic[4];
@@ -307,14 +315,14 @@ typedef struct {
 typedef struct {
     HEADER Hdr<bgcolor=cYellow>; //HeaDeR
 
-    //0 = VertexInfo
-    //1 = FaceDataInfo
-    //2 = Meshes
-    //3 = Materials //Actually might be SKLM
-    //4 = MeshLinkInfo?
-    //5 = MeshVis
-    //6 = Skeleton
-    //7 = SkeletonLinkInfo
+    //0 = VertexBuffers
+    //1 = Primitives
+    //2 = Shapes
+    //3 = Materials
+    //4 = Meshes
+    //5 = MeshNodeVisibility
+    //6 = Bones
+    //7 = Skeleton
     //8 = Unused. Always 0
     //9 = MaterialAnims
 
@@ -334,13 +342,13 @@ void ReadNode(int Type)
     FSeek(N.SeekOffset);
 
     if(Type == 0){
-        VertexInfo VI<bgcolor=cRed>;
+        VertexBuffer VB<bgcolor=cRed>;
     }
     else if(Type == 1){
-        FaceInfo FI<bgcolor=cBlue>;
+        Primitive PRM<bgcolor=cBlue>;
     }
     else if(Type == 2){
-        SeparateShape SM<bgcolor=cDkPurple>;
+        SeparateShape SP<bgcolor=cDkPurple>;
     }
     else if(Type == 3){
         Material MP<bgcolor=cDkGreen>;
