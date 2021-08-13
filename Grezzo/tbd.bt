@@ -1,0 +1,54 @@
+//------------------------------------------------
+//--- 010 Editor v11.0 Binary Template
+//
+//      File: tbd.bt
+//   Authors: M-1
+//   Version: 1.0
+//   Purpose: Parse Grezzo .tbd files
+//  Category: Game
+// File Mask: *.tbd
+//  ID Bytes: 74 62 64 00
+//   History: 
+//------------------------------------------------
+LittleEndian();
+
+//Maybe this order?
+    //UByte  = 0
+    //Byte   = 1
+    //Short  = 2
+    //UShort = 3
+    //Int    = 4
+    //UInt   = 5
+    //Float  = 6
+
+typedef struct{
+    char Name[32];
+    int Index;
+    int ChunkSize;
+    int DataType;
+    int Count;
+    
+    if(DataType == 0){
+        ubyte Values[Count];
+    }
+    if(DataType == 3){
+        ushort Values[Count];
+    }
+    if(DataType == 6){
+        float Values[Count];
+    }
+}Entry;
+
+typedef struct {
+    char Magic[4];
+    int Version;
+    int ChunkSize;
+    int EntryCount;
+} HEADER;
+
+typedef struct {
+    HEADER Hdr<bgcolor=cYellow>;
+    Entry Entries[Hdr.EntryCount]<optimize=false>;
+} CTXB;
+
+CTXB File;
